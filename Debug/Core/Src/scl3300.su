@@ -1,0 +1,7 @@
+../Core/Src/scl3300.c:12:6:spi_nss_hi	8	static
+../Core/Src/scl3300.c:17:6:spi_nss_low	8	static
+../Core/Src/scl3300.c:58:6:HAL_Delay	24	static
+../Core/Src/scl3300.c:76:9:SPI_SCL3300_SendByte	32	static
+../Core/Src/scl3300.c:117:10:SPI_SCL3300_CMD	24	static
+../Core/Src/scl3300.c:147:6:SCL3300_Init	8	static
+../Core/Src/scl3300.c:174:7:SCL3300_ReadAngle	40	static
