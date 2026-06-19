@@ -726,10 +726,10 @@ void adc_task()
     // ADC ?ï¿½ï¿½?ï¿½ï¿½
     HAL_ADC_Start(&hadc1);
 
-    // ADCï¿????????????????? ?ï¿½ï¿½ë£Œë  ?ï¿½ï¿½ê¹Œï¿½? ??ï¿?????????????????
+    // ADCï¿½????????????????? ?ï¿½ï¿½ë£Œë  ?ï¿½ï¿½ê¹Œï¿½? ??ï¿½?????????????????
     while(HAL_ADC_PollForConversion(&hadc1, 10) != HAL_OK);
 
-    // ADC ï¿????????????????? ï¿??????????????????ï¿½ï¿½?ï¿½ï¿½ï¿?????????????????
+    // ADC ï¿½????????????????? ï¿½??????????????????ï¿½ï¿½?ï¿½ï¿½ï¿½?????????????????
     value = HAL_ADC_GetValue(&hadc1);
 
     // ADC ì¤‘ï¿½?
@@ -919,17 +919,17 @@ float angX= 0.0, angY= 0.0, angZ= 0.0,   angY1= 0.0;
 void id_angle_preset(void)
 {
 	/* Unit A(2.5000)     A 2.509 B 2.491  C 2.40  D 2.6 */ 
-	/*  2¡Æ30'  */
+	/*  2ï¿½ï¿½30'  */
 	
 	/* Unit B(2.8300)     A 2.839 B 2.821  C 2.73  D 2.93 */
-	/*  2¡Æ50'  */
+	/*  2ï¿½ï¿½50'  */
 	
 	/* Unit C(3.1700)     A 3.179 B 3.161  C 3.07  D 3.27 */
 
-	/*  3¡Æ10'  */
+	/*  3ï¿½ï¿½10'  */
 	
 	/* Unit D(3.5000)     A 3.509 B 3.491  C 3.40  D 3.6 */
-	/*  3¡Æ30'  */
+	/*  3ï¿½ï¿½30'  */
 
 	id= sw_id();
 	address = id;
@@ -976,10 +976,11 @@ void id_angle_preset(void)
 
 void CANBUS_dect(void)
 {
-	CANa_count ++;
-	CANb_count ++;
-	CANc_count ++;
-	CANd_count ++;	
+	/* 2026-06-19 fix: clamp counters to prevent uint16_t overflow resetting error state */
+	if(CANa_count < 0xFFFF) CANa_count++;
+	if(CANb_count < 0xFFFF) CANb_count++;
+	if(CANc_count < 0xFFFF) CANc_count++;
+	if(CANd_count < 0xFFFF) CANd_count++;	
 
 	switch(address)
 	{
@@ -1111,17 +1112,17 @@ void ang_dect(unsigned char id_no)
 	else if (address==4)	{	 ang1=3.25, ang2=4.0; }
 
 	/* Unit A(2.5000)     A 2.509 B 2.491  C 2.40  D 2.6 */ 
-	/*  2¡Æ30'  */
+	/*  2ï¿½ï¿½30'  */
 	
 	/* Unit B(2.8300)     A 2.839 B 2.821  C 2.73  D 2.93 */
-	/*  2¡Æ50'  */
+	/*  2ï¿½ï¿½50'  */
 	
 	/* Unit C(3.1700)     A 3.179 B 3.161  C 3.07  D 3.27 */
 
-	/*  3¡Æ10'  */
+	/*  3ï¿½ï¿½10'  */
 	
 	/* Unit D(3.5000)     A 3.509 B 3.491  C 3.40  D 3.6 */
-	/*  3¡Æ30'  */
+	/*  3ï¿½ï¿½30'  */
 
 	//if( (angZ1 < ang1 )|| (ang2 < angZ1) ) //1.8  2.7   //error
 	//if( (fabs(angZ1) < ang1 )|| (ang2 < fabs(angZ1)) )  //  1.8  2.7   //error
@@ -1464,8 +1465,9 @@ int main(void)
 					//	HAL_Delay(1);//2000
 					sht3x_set_header_enable(&handle, false);
 					sht3x_read_temperature_and_humidity(&handle, &temperature, &humidity);
-					if((temperature > 200)&&(temperature < -50))  temperature = 0;
-					if((humidity > 100)&&(humidity < -50))  humidity = 0;			
+					/* 2026-06-19 fix: changed && to || (condition was always false) */
+					if((temperature > 200)||(temperature < -50))  temperature = 0;
+					if((humidity > 100)||(humidity < -50))  humidity = 0;
 					/////////////////  ê¸°ì¡´  /////////////////
 					/*
 					if( ( angZ >= 0) && (angZ < 270.0)) angZ1= angZ+(2.222+tilt_x1);
@@ -1606,38 +1608,27 @@ int main(void)
 						{
 							SSD1306_InvertDisplay(1); //SSD1306_ToggleInvert();
 							oled_printf(  5, 5, &Font_16x26, 1,"SYNC PS");
+							/* 2026-06-19 fix: save to flash only on button press to prevent flash wear */
 							GPIO_PinState ENT_pin = HAL_GPIO_ReadPin(ENT_GPIO_Port, ENT_Pin);
-							if( ( ENT_pin == GPIO_PIN_RESET) && (sync_enable == 1) ) sync_enable = 0;
-							else if( ( ENT_pin == GPIO_PIN_RESET) && (sync_enable == 0) ) sync_enable = 1;
-							if(!sync_enable)
+							if(ENT_pin == GPIO_PIN_RESET)
 							{
-								oled_printf(  5, 35, &Font_16x26, 1,"DISABLE");
+								sync_enable ^= 1;
 								flash_save1(sync_enable);
 							}
-							else
-							{
-								oled_printf(  5, 35, &Font_16x26, 1,"ENABLE ");
-								flash_save1(sync_enable);
-							}
+							oled_printf(  5, 35, &Font_16x26, 1, sync_enable ? "ENABLE " : "DISABLE");
 						}
 						else if(DSP_Page == 3)
 						{
 							SSD1306_InvertDisplay(1); //SSD1306_ToggleInvert();
 							oled_printf(  5, 5, &Font_16x26, 1,"HEATER ");
+							/* 2026-06-19 fix: save to flash only on button press to prevent flash wear */
 							GPIO_PinState ENT_pin = HAL_GPIO_ReadPin(ENT_GPIO_Port, ENT_Pin);
-							if( ( ENT_pin == GPIO_PIN_RESET) && (heater_enable == 1) ) heater_enable = 0;
-							else if( ( ENT_pin == GPIO_PIN_RESET) && (heater_enable == 0) ) heater_enable = 1;
-							if(!heater_enable)
+							if(ENT_pin == GPIO_PIN_RESET)
 							{
-								oled_printf(  5, 35, &Font_16x26, 1,"DISABLE");
+								heater_enable ^= 1;
 								flash_save2(heater_enable);
-								
 							}
-							else
-							{
-								oled_printf(  5, 35, &Font_16x26, 1,"ENABLE ");
-								flash_save2(heater_enable);								
-							}
+							oled_printf(  5, 35, &Font_16x26, 1, heater_enable ? "ENABLE " : "DISABLE");
 						}
 
 						else if(DSP_Page == 4)
@@ -1760,38 +1751,27 @@ int main(void)
 						{
 							SSD1306_InvertDisplay(0); //SSD1306_ToggleInvert();
 							oled_printf(  5, 5, &Font_16x26, 1,"SYNC PS");
+							/* 2026-06-19 fix: save to flash only on button press to prevent flash wear */
 							GPIO_PinState ENT_pin = HAL_GPIO_ReadPin(ENT_GPIO_Port, ENT_Pin);
-							if( ( ENT_pin == GPIO_PIN_RESET) && (sync_enable == 1) ) sync_enable = 0;
-							else if( ( ENT_pin == GPIO_PIN_RESET) && (sync_enable == 0) ) sync_enable = 1;
-							if(!sync_enable)
+							if(ENT_pin == GPIO_PIN_RESET)
 							{
-								oled_printf(  5, 35, &Font_16x26, 1,"DISABLE");
+								sync_enable ^= 1;
 								flash_save1(sync_enable);
-
 							}
-							else
-							{
-								oled_printf(  5, 35, &Font_16x26, 1,"ENABLE ");
-								flash_save1(sync_enable);								
-							}
+							oled_printf(  5, 35, &Font_16x26, 1, sync_enable ? "ENABLE " : "DISABLE");
 						}
 						else if(DSP_Page == 3)
 						{
 							SSD1306_InvertDisplay(0);
 							oled_printf(  5, 5, &Font_16x26, 1,"HEATER ");
+							/* 2026-06-19 fix: save to flash only on button press to prevent flash wear */
 							GPIO_PinState ENT_pin = HAL_GPIO_ReadPin(ENT_GPIO_Port, ENT_Pin);
-							if( ( ENT_pin == GPIO_PIN_RESET) && (heater_enable == 1) ) heater_enable = 0;
-							else if( ( ENT_pin == GPIO_PIN_RESET) && (heater_enable == 0) ) heater_enable = 1;
-							if(!heater_enable)
+							if(ENT_pin == GPIO_PIN_RESET)
 							{
-								oled_printf(  5, 35, &Font_16x26, 1,"DISABLE");
-								flash_save2(heater_enable);								
+								heater_enable ^= 1;
+								flash_save2(heater_enable);
 							}
-							else
-							{
-								oled_printf(  5, 35, &Font_16x26, 1,"ENABLE ");
-								flash_save2(heater_enable);								
-							}
+							oled_printf(  5, 35, &Font_16x26, 1, heater_enable ? "ENABLE " : "DISABLE");
 						}
 
 						else if(DSP_Page == 4)
